@@ -1,0 +1,395 @@
+getgenv().SecureMode = true
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+   Name = "Doomspire Brickbattle",
+   LoadingTitle = "Dinosaurbrohub",
+   LoadingSubtitle = "by awdtheman11",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil, -- Create a custom folder for your hub/game
+      FileName = "dh"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+   },
+   KeySystem = false, -- Set this to true to use our key system
+   KeySettings = {
+      Title = "Untitled",
+      Subtitle = "Key System",
+      Note = "No method of obtaining the key is provided",
+      FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+   }
+})
+
+
+local Tab = Window:CreateTab("Teleports", 4483362458) -- Title, Image
+local Player = Window:CreateTab("Player", 4483362458) -- Title, Image
+local Combat = Window:CreateTab("Combat", 5902308742)
+local Antis = Window:CreateTab("Antis", 4483362458)
+local player1 = game.Players.LocalPlayer
+local Label = Tab:CreateLabel("Bases")
+
+
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local function unanchorCharacterParts(character)
+    if character:FindFirstChild("Humanoid") then
+        local humanoid = character.Humanoid
+        if humanoid.RigType == Enum.HumanoidRigType.R6 then
+            local partsToUnanchorR6 = {"Head", "Torso", "HumanoidRootPart", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
+            for _, partName in ipairs(partsToUnanchorR6) do
+                local part = character:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    part.Anchored = false
+                end
+            end
+        elseif humanoid.RigType == Enum.HumanoidRigType.R15 then
+            local partsToUnanchorR15 = {"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart", "LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm", "LeftUpperArm", "RightUpperArm", "LeftFoot", "RightFoot", "LeftLowerLeg", "RightLowerLeg", "LeftUpperLeg", "RightUpperLeg"}
+            for _, partName in ipairs(partsToUnanchorR15) do
+                local part = character:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    part.Anchored = false
+                end
+            end
+        end
+    end
+end
+
+-- Toggle creation
+
+
+local Toggle = Antis:CreateToggle({
+    Name = "Anti-Freeze (admin command)",
+    CurrentValue = false,
+    Flag = "ToggleUnanchor",
+    Callback = function(Value)
+        local running = false
+        running = Value
+        if running then
+            if LocalPlayer.Character then
+                unanchorCharacterParts(LocalPlayer.Character)
+            end
+            LocalPlayer.CharacterAdded:Connect(unanchorCharacterParts)
+        else
+            -- Optional: Add logic to re-anchor the parts if needed when the toggle is off
+        end
+    end,
+})
+
+
+
+
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local selectedPart = "HumanoidRootPart"
+local running = false
+local connection
+
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local distance = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+            if distance < shortestDistance then
+                closestPlayer = player
+                shortestDistance = distance
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+local function turnToClosestPlayer(partToRotate)
+    local closestPlayer = getClosestPlayer()
+    if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local targetPosition = closestPlayer.Character.HumanoidRootPart.Position
+        local currentPosition = LocalPlayer.Character.HumanoidRootPart.Position
+        local direction = Vector3.new(targetPosition.X - currentPosition.X, 0, targetPosition.Z - currentPosition.Z).Unit
+        local newCFrame = CFrame.new(currentPosition, currentPosition + direction)
+
+        if partToRotate == "HumanoidRootPart" then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = newCFrame
+        elseif partToRotate == "Torso" then
+            if LocalPlayer.Character:FindFirstChild("Torso") then
+                LocalPlayer.Character.Torso.CFrame = newCFrame
+            elseif LocalPlayer.Character:FindFirstChild("UpperTorso") then
+                LocalPlayer.Character.UpperTorso.CFrame = newCFrame
+            end
+        end
+    end
+end
+
+local function preventFirstPerson()
+    if LocalPlayer.CameraMaxZoomDistance < 0.5 then
+        LocalPlayer.CameraMaxZoomDistance = 0.5
+    end
+end
+
+
+
+local Dropdown = Combat:CreateDropdown({
+    Name = "Select Part to Rotate",
+    Options = {"HumanoidRootPart", "Torso"},
+    CurrentOption = {"HumanoidRootPart"},
+    MultipleOptions = false,
+    Flag = "DropdownRotatePart",
+    Callback = function(Option)
+        selectedPart = Option[1]
+    end,
+})
+
+local Toggle = Combat:CreateToggle({
+    Name = "Look at closest (useful for sword pvp)",
+    CurrentValue = false,
+    Flag = "ToggleTurn",
+    Callback = function(Value)
+        running = Value
+        if running then
+            connection = RunService.RenderStepped:Connect(function()
+                if LocalPlayer.Character then
+                    turnToClosestPlayer(selectedPart)
+                    preventFirstPerson()
+                    
+                end
+            end)
+        else
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+        end
+    end,
+})
+
+
+
+
+
+
+
+
+
+
+local Toggle = Antis:CreateToggle({
+   Name = "Anti-Void",
+   CurrentValue = false,
+   Flag = "Toggle1",
+   Callback = function(Value)
+        local running = false
+        running = Value
+        if running then
+            spawn(function()
+                while running do
+                    if not workspace:FindFirstChild("AntiDeath") then
+                        local deathbarrier = Instance.new("Part")
+                        deathbarrier.Name = "AntiDeath"
+                        deathbarrier.Parent = workspace
+                        deathbarrier.CFrame = CFrame.new(98.1117783, -3.19821501, -10.6910505)
+                        deathbarrier.Transparency = 1 -- Make it invisible
+                        deathbarrier.Size = Vector3.new(1500, 5, 1500)
+                        deathbarrier.Anchored = true
+                        deathbarrier.CanCollide = true -- Ensure it's non-collidable
+                    end
+                    wait(1)
+                end
+            end)
+        end
+   end,
+})
+
+
+
+
+local Button = Tab:CreateButton({
+   Name = "Green (Best bombing area)",
+   Callback = function()
+   if player1.Team ~= game.Teams.GREEN then
+       
+   game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(0, 25, -125)-- The function that takes place when the button is pressed
+      
+   else
+    Rayfield:Notify({
+   Title = "Error",
+   Content = "This is your own team!",
+   Duration = 6.5,
+   Image = 4483362458,
+   Actions = { -- Notification Buttons
+      Ignore = {
+         Name = "Okay!",
+         Callback = function()
+         print("The user tapped Okay!")
+      end
+   },
+},
+})
+   end
+   end,
+})
+local Button = Tab:CreateButton({
+   Name = "Blue (Best bombing area)",
+   Callback = function()
+   if player1.Team ~= game.Teams.BLUE then
+       
+   game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(2, 27, 117)-- The function that takes place when the button is pressed
+      
+  
+  else
+ Rayfield:Notify({
+   Title = "Error",
+   Content = "This is your own team!",
+   Duration = 6.5,
+   Image = 4483362458,
+   Actions = { -- Notification Buttons
+      Ignore = {
+         Name = "Okay!",
+         Callback = function()
+         print("The user tapped Okay!")
+      end
+   },
+},
+})
+   end
+   end,
+})
+local Button = Tab:CreateButton({
+   Name = "Yellow (Best bombing area)",
+   Callback = function()
+   if player1.Team ~= game.Teams.YELLOW then
+     
+   game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(127, 27, 2)-- The function that takes place when the button is pressed
+       
+       
+       
+  
+   else
+    Rayfield:Notify({
+   Title = "Error",
+   Content = "This is your own team!",
+   Duration = 6.5,
+   Image = 4483362458,
+   Actions = { -- Notification Buttons
+      Ignore = {
+         Name = "Okay!",
+         Callback = function()
+         print("The user tapped Okay!")
+      end
+   },
+},
+})
+   end
+   end,
+})
+
+local Button = Tab:CreateButton({
+   Name = "Red (Best bombing area)",
+   Callback = function()
+   if player1.Team ~= game.Teams.RED then
+     
+   game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-131, 24, -8)-- The function that takes place when the button is pressed
+       
+            
+       
+    else
+    Rayfield:Notify({
+   Title = "Error",
+   Content = "This is your own team!",
+   Duration = 6.5,
+   Image = 4483362458,
+   Actions = { -- Notification Buttons
+      Ignore = {
+         Name = "Okay!",
+         Callback = function()
+         print("The user tapped Okay!")
+      end
+   },
+},
+})
+    end
+   end,
+})
+
+local Label = Tab:CreateLabel("Other")
+local Button = Tab:CreateButton({
+   Name = "Safe zone",
+   Callback = function()
+    
+  local safezone =  Instance.new("Part", workspace)
+  safezone.Name = "Safezone"
+  safezone.CFrame = CFrame.new(10000, 995, 10000)
+  safezone.Size = Vector3.new(750, 2, 750)
+  safezone.Transparency = 0.15
+  safezone.Anchored = true
+
+   game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(10000, 1000, 10000)-- The function that takes place when the button is pressed
+
+   end,
+}) 
+local Button = Tab:CreateButton({
+   Name = "Dead Lobby",
+   Callback = function()
+    
+   
+   game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(9, 719, 16)-- The function that takes place when the button is pressed
+   
+    
+   end,
+})
+
+local Button = Player:CreateButton({
+   Name = "Infinite Jump",
+   Callback = function()
+        Rayfield:Notify({
+   Title = "Error",
+   Content = "Removed due to performance issues. Adding back when these are fixed.",
+   Duration = 6.5,
+   Image = 4483362458,
+   Actions = { -- Notification Buttons
+      Ignore = {
+         Name = "Okay!",
+         Callback = function()
+         print("The user tapped Okay!")
+      end
+   },
+},
+})
+   end,
+})
+
+local Slider = Player:CreateSlider({
+   Name = "Walkspeed",
+   Range = {16, 100},
+   Increment = 1,
+   Suffix = "Walkspeed",
+   CurrentValue = 16,
+   Flag = "Slider1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+   game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+   end,
+})
+
+local Slider = Player:CreateSlider({
+   Name = "Jump power",
+   Range = {16, 100},
+   Increment = 1,
+   Suffix = "Jump power",
+   CurrentValue = 16,
+   Flag = "Slider1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+   game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
+   end,
+})
+
